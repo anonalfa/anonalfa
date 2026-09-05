@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Анонимные сообщения </title>
+<style>
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+body {
+background-color: #0e1621;
+color: #f5f5f5;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+padding: 20px;
+}
+.card {
+background-color: #182533;
+border-radius: 15px;
+width: 100%;
+max-width: 450px;
+padding: 30px;
+box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+border: 1px solid #24303f;
+text-align: center;
+}
+.avatar {
+width: 80px;
+height: 80px;
+background: linear-gradient(135deg, #5288c1, #2a6ca8);
+border-radius: 50%;
+margin: 0 auto 20px;
+display: flex;
+justify-content: center;
+align-items: center;
+font-size: 32px;
+box-shadow: 0 4px 12px rgba(42, 108, 168, 0.3);
+}
+h2 {
+font-size: 22px;
+margin-bottom: 10px;
+font-weight: 600;
+}
+p {
+color: #7f91a4;
+font-size: 14px;
+margin-bottom: 25px;
+line-height: 1.4;
+}
+textarea {
+width: 100%;
+height: 120px;
+background-color: #24303f;
+border: 1px solid #2f3e4e;
+border-radius: 10px;
+color: #fff;
+padding: 12px;
+font-size: 15px;
+resize: none;
+outline: none;
+transition: border-color 0.2s;
+margin-bottom: 20px;
+}
+textarea:focus {
+border-color: #5288c1;
+}
+textarea::placeholder {
+color: #6c7a8d;
+}
+textarea:disabled {
+opacity: 0.5;
+}
+button {
+width: 100%;
+background-color: #2481cc;
+color: #fff;
+border: none;
+border-radius: 10px;
+padding: 14px;
+font-size: 16px;
+font-weight: bold;
+cursor: pointer;
+transition: background-color 0.2s, transform 0.1s;
+}
+button:hover {
+background-color: #2a8ccc;
+}
+button:active {
+transform: scale(0.98);
+}
+button:disabled {
+background-color: #3a4a5c;
+cursor: not-allowed;
+transform: none;
+}
+#status {
+margin-top: 15px;
+font-size: 14px;
+font-weight: 500;
+display: none;
+}
+.success { color: #4ee44e; }
+.error { color: #ff5252; }
+.loading { color: #7f91a4; }
+.info { color: #f0a020; }
+</style>
+</head>
+<body>
+<div class="card">
+<h2>Anon Al-Fa 2026</h2>
+<p></p>
+<textarea id="messageInput" placeholder="Напиши что-нибудь интересное..."></textarea>
+<button id="sendBtn" onclick="sendMessage()">Отправить</button>
+<div id="status"></div>
+</div>
+<script>
+// Твои конфигурационные данные встроенные прямо в JS
+const BOT_TOKEN = '8899805239:AAHK3KaiQXEl-28wanCMevtWNHwM0IEZJ-A';
+const CHAT_ID = '@anonalfaa';
+
+// Ограничение: одно сообщение с устройства в час
+const COOLDOWN_MS = 60 * 60 * 1000; // 1 час
+const STORAGE_KEY = 'anon_last_sent_at';
+
+let cooldownInterval = null;
+
+function msToClock(ms) {
+const totalSec = Math.max(0, Math.ceil(ms / 1000));
+const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+const s = (totalSec % 60).toString().padStart(2, '0');
+return `${m}:${s}`;
+}
+
+function getRemainingCooldown() {
+const lastSent = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+const elapsed = Date.now() - lastSent;
+return COOLDOWN_MS - elapsed;
+}
+
+function applyCooldownState() {
+const remaining = getRemainingCooldown();
+const button = document.getElementById('sendBtn');
+const textarea = document.getElementById('messageInput');
+
+if (remaining > 0) {
+button.disabled = true;
+textarea.disabled = true;
+showStatus('Следующее сообщение можно отправить через ' + msToClock(remaining), 'info');
+
+if (!cooldownInterval) {
+cooldownInterval = setInterval(() => {
+const left = getRemainingCooldown();
+if (left <= 0) {
+clearInterval(cooldownInterval);
+cooldownInterval = null;
+button.disabled = false;
+textarea.disabled = false;
+hideStatus();
+} else {
+showStatus('Следующее сообщение можно отправить через ' + msToClock(left), 'info');
+}
+}, 1000);
+}
+return true;
+} else {
+button.disabled = false;
+textarea.disabled = false;
+return false;
+}
+}
+
+async function sendMessage() {
+// Повторная проверка на случай, если пользователь обошёл disabled (например, через консоль)
+if (applyCooldownState()) {
+return;
+}
+
+const textarea = document.getElementById('messageInput');
+const button = document.getElementById('sendBtn');
+const text = textarea.value.trim();
+
+if (!text) {
+showStatus('Введите сообщение перед отправкой.', 'error');
+return;
+}
+
+// Блокируем кнопку и поле во время отправки
+textarea.disabled = true;
+button.disabled = true;
+showStatus('Отправка в Telegram...', 'loading');
+
+// Напрямую формируем URL для Telegram API
+const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+const tgText = `Новое анонимное сообщение (:**\n\n${text}`;
+
+try {
+// Прямой запрос к серверам Telegram из браузера
+const response = await fetch(url, {
+method: 'POST',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify({
+chat_id: CHAT_ID,
+text: tgText,
+parse_mode: 'Markdown'
+})
+});
+
+const data = await response.json();
+
+if (data.ok) {
+showStatus('отправлено', 'success');
+textarea.value = ''; // очищаем поле
+localStorage.setItem(STORAGE_KEY, Date.now().toString());
+setTimeout(() => applyCooldownState(), 1200); // запускаем таймер после короткой паузы
+return;
+} else {
+showStatus('Ошибка: ' + data.description, 'error');
+}
+} catch (err) {
+showStatus('Сетевая ошибка. Возможно, Telegram заблокирован или нет интернета.', 'error');
+console.error(err);
+} finally {
+// Разблокируем интерфейс обратно, если лимит ещё не активен
+if (getRemainingCooldown() <= 0) {
+textarea.disabled = false;
+button.disabled = false;
+}
+}
+}
+
+function showStatus(text, className) {
+const status = document.getElementById('status');
+status.style.display = 'block';
+status.innerText = text;
+status.className = className;
+}
+
+function hideStatus() {
+const status = document.getElementById('status');
+status.style.display = 'none';
+}
+
+// Проверяем состояние лимита сразу при загрузке страницы
+applyCooldownState();
+</script>
+</body>
+</html>
