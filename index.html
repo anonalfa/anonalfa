@@ -197,7 +197,7 @@ showStatus('Отправка в Telegram...', 'loading');
 
 // Напрямую формируем URL для Telegram API
 const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
-const tgText = `Новое анонимное сообщение:**\n\n${text}`;
+const tgText = `Новое анонимное сообщение (:**\n\n${text}`;
 
 try {
 // Прямой запрос к серверам Telegram из браузера
